@@ -1,0 +1,71 @@
+#!/bin/bash
+filename="$(basename "${BASH_SOURCE[0]}")"
+if [ -z "$project_root" ]; then
+  project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+fi
+rails_root="$project_root/rails"
+command="bash"
+service=dev_web
+envar=""
+byebug=""
+production=""
+image=""
+docker_compose_path="-f $project_root/docker-compose.yml"
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -h -v -s ] command
+Runs a command in a docker container in development
+Arguments:
+  -h        - print this usage.
+  -s        - docker service to use. Defaults to $service
+  -v        - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      -s)
+        service="$2"
+        shift
+      ;;
+      -dev)
+        envar="development"
+        byebug="true"
+        image="development_web:latest"
+      ;;
+      -prod)
+        envar="production"
+        byebug="false"
+        production="-production"
+        image="production_web:latest"
+      ;;
+      -v)
+        set -x
+        shift
+      ;;
+      *)
+        break
+      ;;
+  esac
+  shift
+done
+
+export DEV_WEB_IMAGE=$image
+
+if [ -n "$1" ]; then
+  command="$@"
+fi
+
+set -eu
+cd "$project_root"
+
+docker compose -f $project_root/docker-compose$production.yml run \
+    -e RAILS_ENV=$envar \
+    -e BYEBUG_SERVER=$byebug \
+    -e HISTFILE=/var/www/myapp/tmp/.bash_history \
+    -e POSTGRES_PASSWORD=root \
+    --rm \
+    --use-aliases \
+    --labels type=dev-container \
+     $service \
+     $command

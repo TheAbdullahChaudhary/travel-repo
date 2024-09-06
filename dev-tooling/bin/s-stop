@@ -1,0 +1,53 @@
+#!/bin/bash
+set -eu
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+rails_root="$project_root/rails"
+service=""
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -h -v -s service ]
+Stops and removes the docker services in development.
+Arguments:
+  -h              - print this usage.
+  -s service_name - stop a specific service
+  -v              - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      -s)
+        service="$2"
+        shift
+      ;;
+      -v)
+        set -x
+      ;;
+      *)
+        echo "unexpected argument $1" >&2
+        exit 1
+      ;;
+  esac
+  shift
+done
+
+server_pid="$rails_root/pids/server.pid"
+
+cd "$rails_root"
+
+if [ -n "$service" ]; then
+  docker compose -f $project_root/docker-compose.yml stop "$service"
+  if [ "$service" == "dev_web" ] && [ -e "$server_pid" ]; then
+    rm "$server_pid"
+  fi
+else
+  docker compose -f $project_root/docker-compose.yml down --remove-orphans
+  if [ -e "$server_pid" ]; then
+    rm "$server_pid"
+  fi
+fi
+network_name="$(basename "$project_root")_devnet"
+while docker network ls | grep -q "$network_name"; do
+  echo "Waiting for network to stop..."
+  sleep 5
+done

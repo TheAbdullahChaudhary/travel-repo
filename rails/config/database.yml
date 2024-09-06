@@ -1,0 +1,32 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  # For PostgreSQL, pool specifies the maximum number of database connections
+  # available to your Rails application. Adjust it as needed.
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  # Timeout for keeping database connections open in seconds.
+  timeout: 5000
+  host: dev_db
+
+development:
+  <<: *default
+  database: myapp_development
+  username: postgres
+  password: root
+  host: dev_db
+
+test:
+  <<: *default
+  username: <%= ENV.fetch("POSTGRES_USER'") { 'postgres' } %>
+  password: <%= ENV.fetch("POSTGRES_PASSWORD") { 'root' } %>
+  host: <%= ENV.fetch("POSTGRES_HOST") { 'dev_db' } %>
+  database: myapp_test<%= ENV['TEST_ENV_NUMBER'] %>
+
+production:
+  <<: *default
+  # Normally, database details and credentials should be kept out of source control,
+  # hence using environment variables to manage sensitive information.
+  database: myapp_production
+  username: <%= ENV.fetch("POSTGRES_USER'") { 'postgres' } %>
+  password: <%= ENV.fetch("POSTGRES_PASSWORD") { 'root' } %>
+  host: <%= ENV.fetch("POSTGRES_HOST") { 'prod_db' } %>

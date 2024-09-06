@@ -1,0 +1,50 @@
+#!/bin/bash
+set -eu
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+rails_root="$project_root/rails"
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -h -v ]
+Builds the initial development database.
+Arguments:
+  -h - print this usage.
+  -v - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      -v)
+        set -x
+        shift
+      ;;
+      *)
+        echo "unexpected argument $1" >&2
+        exit 1
+      ;;
+  esac
+done
+
+docker_project_root="/var/www/myapp"
+if [ "$project_root" != "/" ]; then
+  "$project_root/dev-tooling/bin/s-docker-run" -dev  "/dev-tooling/bin/s-db-init-dev"
+  exit $?
+fi
+
+if [ "$RAILS_ENV" != "development" ]; then
+  echo "Error: Unexpected rail environment $RAILS_ENV" >&2;
+  exit 1
+fi
+
+latest_dump_sql_file=""
+if [ -d "/var/www/myapp/tmp/" ]; then
+  latest_dump_sql_file=$(ls -1 /var/www/myapp/tmp/dev-dump-*.sql | tail -n -1)
+fi
+
+if [ -n "$latest_dump_sql_file" ]; then
+  bundle exec rails db:drop db:create
+  echo "loading sql dump $latest_dump_sql_file"
+  cat "$latest_dump_sql_file" | bundle exec rails dbconsole -p
+else
+  bundle exec rake db:setup
+fi

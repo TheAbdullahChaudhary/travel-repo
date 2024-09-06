@@ -1,0 +1,25 @@
+FROM ubuntu:focal
+WORKDIR /host
+ENV PATH=${PATH}:/host/dev-tooling/bin
+ENV DEV_TOOLS_VERSION=10
+RUN export DEBIAN_FRONTEND="noninteractive" && apt-get update && apt-get install -y jq curl unzip openssh-client ruby-full vim git apt-transport-https ca-certificates software-properties-common gnupg-agent wormhole bash-completion openssl groff
+RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+   add-apt-repository "deb [arch=arm64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
+   apt-get update && \
+   apt-get install -y docker-ce-cli
+RUN curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/arm64/kubectl && chmod +x ./kubectl && mv kubectl /usr/bin/kubectl
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "/tmp/awscliv2.zip" && \
+  cd /tmp/ && unzip /tmp/awscliv2.zip && \
+  ./aws/install && \
+  rm -rf /tmp/aws
+RUN cd /tmp && curl -L -o "eksctl_$(uname -s)_arm64.tar.gz" "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_arm64.tar.gz" && tar -xf "eksctl_$(uname -s)_arm64.tar.gz" && mv /tmp/eksctl /usr/local/bin
+RUN kubectl completion bash | tee /etc/bash_completion.d/kubectl > /dev/null && echo 'source /usr/share/bash-completion/bash_completion' >>~/.bashrc
+RUN curl https://baltocdn.com/helm/signing.asc | apt-key add -
+RUN echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+RUN apt-get update && apt-get install -y helm
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt update \
+    && apt install gh -y
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && apt-get update && apt-get install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin pip && /usr/bin/python3 -m pip install numpy

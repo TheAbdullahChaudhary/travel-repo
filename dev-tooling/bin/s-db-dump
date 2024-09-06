@@ -1,0 +1,30 @@
+#!/bin/bash
+
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+rails_root="$project_root/rails"
+dump_file="${rails_root}/tmp/dev-dump-$(date +"%s").sql"
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -h -v ]
+Dumps the dev db from docker to $dump_file
+Arguments:
+  -h - print this usage.
+  -v - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  -h)
+    echo "$help"
+    exit 0
+    ;;
+  -v)
+    set -x
+    ;;
+  *)
+    echo "unexpected argument $1" >&2
+    exit 1
+    ;;
+  esac
+  shift
+done
+
+s-docker-run pg_dump -U postgres -proot -h dev_db myapp_development > "$dump_file"
+echo "dumped database to $dump_file"

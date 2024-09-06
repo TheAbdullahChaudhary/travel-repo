@@ -1,0 +1,101 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+   run:
+     working-directory: rails
+  
+jobs:
+  rspec:
+      name: rspec
+      runs-on: ubuntu-latest
+      timeout-minutes: 30
+      env:
+        RAILS_ENV: "test"
+        NUMBER_OF_PROCESSORS: 12
+
+      services:
+      # Label used to access the service container
+        postgres:
+        # Docker Hub image
+          image: postgres:13.0
+          env:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+          ports:
+            # Maps tcp port 5432 on service container to the host
+            - 5432:5432
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v3
+          with:
+            submodules: true
+
+        - name: Cache bundle
+          uses: ruby/setup-ruby@v1
+          with:
+            ruby-version: 3.3.0
+            bundler-cache: true
+            working-directory: rails
+        
+        - name: Install PostgreSQL Client
+          run: |
+            sudo apt-get -yqq install libpq-dev
+
+        - name: Yarn install
+          run: yarn --prefer-offline
+
+        - name: Setup
+          run: |
+            bundle exec rake parallel:create[$NUMBER_OF_PROCESSORS] parallel:load_schema[$NUMBER_OF_PROCESSORS]
+          env:
+          # The hostname used to communicate with the PostgreSQL service container
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_HOST: localhost
+
+        - name: rspec
+          run: bundle exec parallel_test -t rspec -n $NUMBER_OF_PROCESSORS
+          env:
+          # The hostname used to communicate with the PostgreSQL service container
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_HOST: localhost
+
+        - name: cleanup
+          run: docker system prune --volumes --force
+  rubocop:
+    name: rubocop
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Cache bundle
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3.0
+          bundler-cache: true
+          working-directory: rails
+
+      - name: rubocop
+        run: bundle exec rubocop

@@ -1,0 +1,48 @@
+require: rubocop-rails
+AllCops:
+  NewCops: enable
+  Exclude:
+    - db/schema.rb
+    - 'vendor/**/*'
+    - 'node_modules/**/*'
+    - 'tmp/**/*'
+    - 'bin/*'
+    - 'db/migrate/archive/*'
+Rails/UnknownEnv:
+  Enabled: false
+
+Bundler/OrderedGems:
+  TreatCommentsAsGroupSeparators: true
+Rails/LexicallyScopedActionFilter:
+
+  Enabled: false
+Metrics/ParameterLists:
+  Max: 15
+Rails/I18nLocaleTexts:
+  Enabled: false
+Security/YAMLLoad:
+  Exclude:
+    - 'spec/**/*'
+    - 'config/application.rb'
+Naming/VariableNumber:
+  Enabled: false
+Style/OpenStructUse:
+  Enabled: false
+Rails/HasAndBelongsToMany:
+  Enabled: false
+
+Rails/RedundantPresenceValidationOnBelongsTo:
+  Enabled: false
+Rails/ReversibleMigration:
+  Enabled: false
+Layout/LineLength:
+  Max: 5361
+Style/Documentation:
+  Enabled: false
+Style/ClassVars:
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - 'config/**/*'
+    - 'spec/**/*'

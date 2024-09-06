@@ -1,0 +1,66 @@
+#!/bin/bash
+set -eu
+filename="$(basename "${BASH_SOURCE[0]}")"
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+dev_tooling="$project_root/dev-tooling"
+no_multiline=""
+use_dbconsole=""
+use_bash_console=""
+verbose=""
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -b -d -f -h -M -n namespace -v]
+Connects to the rails console within Vagrant
+Arguments:
+  -b - use bash console.
+  -d - use db console.
+  -f - create front-end console
+  -h - print this usage.
+  -i - name of the image to use. if none supplied, will grab the currently used image in a given environment
+  -M - turns on 'nomultiline' flag for rails console. speeds up pasting into console
+  -v - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -b)
+        use_bash_console='-b'
+      ;;
+      -d)
+        use_dbconsole="-d"
+      ;;
+      -f)
+        s-docker-run -s dev_nextjs bash
+        exit 0
+      ;;
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      -M)
+        no_multiline="-M"
+      ;;
+      -v)
+        set -x
+        verbose="-v"
+      ;;
+      *)
+        echo "unexpected argument $1" >&2
+        exit 1
+      ;;
+  esac
+  shift
+done
+
+if [ -n "$use_bash_console" ]; then
+  console_type="bash-console"
+  console_command="bash"
+elif [ -n "$use_dbconsole" ]; then
+  console_type="dbconsole"
+  console_command="bundle exec rails dbconsole -p"
+else
+  console_type="rails-console"
+  console_command="bundle exec rails c"
+  if [ -n "$no_multiline" ]; then
+    console_command="$console_command -- --nomultiline"
+  fi
+fi
+
+"$dev_tooling/bin/s-docker-run" $verbose "$console_command"

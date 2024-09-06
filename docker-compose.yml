@@ -1,0 +1,69 @@
+version: '3.8'
+services:
+  dev_web:
+    environment:
+      - EDITOR=vim
+      - BYEBUG_SERVER=true
+      - RAILS_ENV=development
+      - NEXT_HOST=http://dev_nextjs
+    image: development_web:latest
+    entrypoint: >
+      sh -c "mkdir -p /var/www/myapp/tmp/pids && /dev-tooling/bin/s-start -s"
+    tty: true
+    depends_on:
+      - dev_db
+      - dev_nextjs
+    ports:
+      - 3000:3000
+      - 8000:8000
+    volumes:
+      - './rails:/var/www/myapp'
+    networks:
+      - devnet
+  dev_nextjs:
+    environment:
+      - PORT=4000
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PRIVATE_API_URL=http://dev_web:8000
+      - HOSTNAME=0.0.0.0
+    image: nextjs:latest
+    command: yarn dev
+    tty: true
+    ports:
+      - 4000:4000
+    volumes:
+      - './frontend:/home/node/app'
+    networks:
+      - devnet
+  dev_db:
+      image: postgres:13.0
+      volumes:
+        - dbdata:/var/lib/postgresql/data
+      environment:
+        - POSTGRES_PASSWORD=root
+        - POSTGRES_ROOT_USER=postgres
+      ports:
+      - 5432:5432
+      networks:
+        - devnet
+  dev_guard:
+    image: development_web:latest
+    command: bundle exec guard
+    tty: true
+    volumes:
+      - './rails:/var/www/myapp'
+    networks:
+      - devnet
+    depends_on:
+      - dev_web
+volumes:
+  dbdata:
+    external: true
+
+secrets:
+  postgres_root_password:
+    external: true
+
+networks:
+  devnet:
+    attachable: true

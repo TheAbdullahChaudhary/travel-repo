@@ -1,0 +1,104 @@
+#!/bin/bash
+set -eu
+web_image=""
+nextjs_image=""
+production=""
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+rails_root="$project_root/rails"
+fast_mode=""
+dev_tooling_bin="$project_root/dev-tooling/bin"
+profile=""
+restart=""
+type=""
+run_type=""
+development=""
+output="dev/null"
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -f -h -r -v ]
+Performs a set of sanity checks and starts the local development environment using docker compose.
+Arguments:
+  -f - faster startup. Skips the yarn install.
+  -h - print this usage.
+  -v - verbose output for troubleshooting.
+"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -f)
+        fast_mode="true"
+      ;;
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      --prod)
+        web_image="production_web"
+        nextjs_image="production_nextjs"
+        production="-production"
+        type="-p"
+        run_type="-prod"
+      ;;
+      -p)
+        { ./bin/rails server; }
+        exit $?
+
+      ;;
+      --dev)
+        development="true"
+        web_image="development_web"
+        nextjs_image="nextjs"
+        type="-s"
+        run_type="-dev"
+      ;;
+      -s)
+        { bin/dev & nginx -g "daemon off;"; }
+        exit $?
+      ;;
+      -r)
+        restart="true"
+      ;;
+      -v)
+        set -x
+        output=/dev/stdout
+      ;;
+      *)
+        echo "unexpected argument $1" >&2
+        exit 1
+      ;;
+  esac
+  shift
+done
+
+frontend_mount_path="$project_root/frontend:/home/node/app"
+
+if ! docker image ls | grep -q "$nextjs_image":latest; then
+  "$dev_tooling_bin/s-docker-build" "$type" --nextjs
+fi
+
+
+if [ -n "$development" ]; then
+  if ! docker run -v "$frontend_mount_path" --rm "$nextjs_image":latest yarn check --silent; then
+    docker run -v "$frontend_mount_path" --rm "$nextjs_image":latest yarn install --check-file
+  fi
+fi
+
+cd "$project_root"
+mount_path="$project_root/rails:/backend"
+
+if [ -z "$fast_mode" ]; then
+  if ! docker run -v "$mount_path" --rm "$web_image":latest bundle check; then
+    echo "Gems out of date, need to rebuild dev image..." >&2
+    "$dev_tooling_bin/s-docker-build" "$type" --web
+  fi
+else
+  docker run -v "$run_type" "$mount_path" --rm "$web_image":latest yarn install --check-files
+fi
+
+if [ -n "$restart" ]; then
+  "$dev_tooling_bin/s-stop"
+fi
+
+if [ -e "$rails_root/tmp/pids/server.pid" ]; then
+  rm "$rails_root/tmp/pids/server.pid"
+fi
+
+docker compose -f $project_root/docker-compose$production.yml $profile up --detach

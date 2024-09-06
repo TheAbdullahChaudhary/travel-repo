@@ -1,0 +1,35 @@
+#!/bin/bash
+set -eu
+
+additional_args=""
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+container_base_name=$(basename "$project_root")
+container="$container_base_name-dev_web-1"
+
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -c -d -h -p -v ] *args*
+Connects to remote byebug debbuger instances
+Arguments:
+  -h - print this usage.
+  -v - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      -v)
+        set -x
+      ;;
+      *)
+        break
+      ;;
+  esac
+  shift
+done
+
+if [ -n "$@" ]; then
+  additional_args="$@"
+fi
+
+docker  exec -it "$container" bundle exec byebug -R localhost:1048

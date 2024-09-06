@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.4
+
+FROM upstart_base_web_arm64:latest
+USER root
+WORKDIR /var/www/myapp
+
+RUN gem install bundler -v 2.5.9
+
+ENV RAILS_ROOT /var/www/myapp
+
+ENV EDITOR vim
+ENV RAILS_ENV development
+
+COPY --from=devtooling ./bin /dev-tooling/bin
+COPY --from=devops ./development/backend/scripts /dev-tooling/scripts
+COPY --from=devops ./development/backend/configs /dev-tooling/configs
+
+RUN apt-get update && apt-get install -y dnsutils net-tools vim postgresql postgresql-contrib libpq-dev apache2-utils wget
+RUN wget https://github.com/tsl0922/ttyd/releases/download/1.7.3/ttyd.aarch64 -O /usr/bin/ttyd && chmod a+x /usr/bin/ttyd && echo "31f5c45ccca349a9f1232d26f51c99af2615d0ef  /usr/bin/ttyd" | shasum -a 256 -c -
+RUN /dev-tooling/scripts/install-logrot-dev.sh && chown -R nonroot:nonroot /var/lib/logrotate/
+COPY Gemfile Gemfile.lock yarn.lock package.json  ./
+RUN bundle config unset --local without && bundle config unset --local frozen && bundle install && yarn install --check-files
+USER nonroot
+
+RUN rm /etc/nginx/nginx.conf && ln -s /dev-tooling/configs/nginx.conf /etc/nginx/nginx.conf && ln -s /dev-tooling/configs/site.conf /etc/nginx/sites-enabled/site.conf
+
+EXPOSE 3000
+
+
+CMD [ "nginx", "-g", "daemon off;" ]

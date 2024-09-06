@@ -1,0 +1,120 @@
+#!/bin/bash
+set -eu
+set -o pipefail
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+rails_root="$project_root/rails"
+dockerfile_dir="$project_root/dev-tooling"
+build_web=""
+no_pull="false"
+no_cache=""
+no_cache_arg=""
+verbose=""
+build_dev_tools=""
+build_nextjs=""
+build_base=""
+development=""
+production=""
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -h-n -v ] --rails | --nextjs
+Builds the development docker images and other components.
+Arguments:
+  --devtools
+  --rails - build backend docker image
+  --nextjs - build the Next.js development image
+  -h - print this usage
+  -n - no cache
+  -v - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  --web)
+    build_web="true"
+    ;;
+  --nextjs)
+    build_nextjs="true"
+    ;;
+  --base)
+    build_base="true"
+  ;;
+  --dev-tools)
+    build_dev_tools="true"
+    ;;
+  -s)
+    development="true"
+  ;;
+  -p)
+    production="true"
+  ;;
+  -n)
+  no_cache="--no-cache"
+  no_cache_arg="-n"
+  ;;
+  -h)
+    echo "$help"
+    exit 0
+    ;;
+  -v)
+    set -x
+    verbose="-v"
+    ;;
+  *)
+    echo "unexpected argument $1" >&2
+    exit 1
+    ;;
+  esac
+  shift
+done
+
+if [ -n "$development" ]; then
+  echo "Building in Development environment"
+
+  if [ -n "$build_web" ]; then
+    if ! docker image ls | grep upstart_base_web_arm64 > /dev/null; then
+      echo "Base Image Missing" >&2
+      "$project_root/dev-tooling/bin/s-docker-build" -s --base $no_cache_arg $verbose
+    fi
+    echo "Building Development backend image"
+    docker buildx build --pull=$no_pull -f "$project_root/.devops/development/backend/DockerfileDevelopment" \
+    -t "development_web:latest" \
+    --build-arg rails_env=development \
+    --build-context devops="$project_root/.devops" \
+    --build-context devtooling="$project_root/dev-tooling" \
+    "$rails_root"
+  fi
+  if [ -n "$build_nextjs" ]; then
+    echo "Building Next.js frontend image"
+    docker build --pull=$no_pull  -f "$project_root/.devops/development/frontend/Dockerfile" -t 'nextjs:latest' $no_cache "$project_root/frontend"
+  fi
+
+  if [ -n "$build_base" ]; then
+    echo "Building base image"
+    docker buildx build --pull=$no_pull  $no_cache -f "$project_root/.devops/development/backend/DockerfileBase" \
+    -t "upstart_base_web_arm64:latest" \
+    --build-arg rails_env=development \
+    --build-context devops="$project_root/.devops" \
+    --build-context devtooling="$project_root/dev-tooling" \
+    "$rails_root"
+  fi
+fi
+
+if [ -n "$build_dev_tools" ]; then
+  echo "Building dev tools image"
+  docker build --pull -f "$dockerfile_dir/DockerfileDevTools" -t 'dev_tools:latest' $no_cache "$project_root"
+fi
+
+if [ -n "$production" ]; then
+  echo "Building Production environment"
+
+  if [ -n "$build_web" ]; then
+    echo "Building Production backend image"
+    docker buildx build --pull=$no_pull -f "$project_root/.devops/production/backend/Dockerfile" \
+    -t "production_web:latest" \
+    --build-arg rails_env=production \
+    --build-context devops="$project_root/.devops" \
+    --build-context devtooling="$project_root/dev-tooling" \
+    "$rails_root"
+  fi
+  if [ -n "$build_nextjs" ]; then
+    echo "Building Next.js frontend image"
+    docker build --pull=$no_pull  -f "$project_root/.devops/production/frontend/Dockerfile" -t 'production_nextjs:latest' $no_cache "$project_root/frontend"
+  fi
+fi

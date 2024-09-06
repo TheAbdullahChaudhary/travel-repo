@@ -1,0 +1,36 @@
+#!/bin/bash
+set -eu
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+dev_tooling="$project_root/dev-tooling/bin"
+
+help="Usage: $(basename "${BASH_SOURCE[0]}") [ -h ]
+Builds Routes file for NextJs from rails routes.
+Arguments:
+  -h - print this usage.
+  -v - verbose output for troubleshooting.
+"
+while [[ $# -gt 0 ]]; do
+  case $1 in
+      -h)
+        echo "$help"
+        exit 0
+      ;;
+      -v)
+        set -x
+      ;;
+      *)
+        echo "unexpected argument $1" >&2
+        exit 1
+      ;;
+  esac
+  shift
+done
+
+
+"$dev_tooling/s-docker-run" rake js:routes:typescript
+
+source_dir="$project_root/rails/tmp"
+destination_dir="$project_root/frontend/src/lib"
+
+mv "$source_dir/routes.js" "$destination_dir/routes.js"
+mv "$source_dir/routes.d.ts" "$destination_dir/routes.d.ts"

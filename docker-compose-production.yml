@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  prod_web:
+    environment:
+      - EDITOR=vim
+      - POSTGRES_PASSWORD=root
+      - PORT=3000
+      - NEXT_HOST=localhost
+    image: production_web:latest
+    command: ./bin/rails server
+    tty: true
+    depends_on:
+      - prod_db
+      - prod_nextjs
+    ports:
+      - 3000:3000
+    volumes:
+    - './rails:/var/www/myapp'
+    networks:
+      - devnet_prod
+  prod_nextjs:
+    environment:
+      - PORT=4000
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PRIVATE_API_URL=http://prod_web:3000
+    image: production_nextjs:latest
+    command: node server.js
+    tty: true
+    ports:
+      - 4000:4000
+    networks:
+      - devnet_prod
+  prod_db:
+      image: postgres:13.0
+      volumes:
+        - dbdata_prod:/var/lib/postgresql/data
+      environment:
+        - POSTGRES_PASSWORD=root
+        - POSTGRES_USER=postgres
+      ports:
+      - 5432:5432
+      networks:
+        - devnet_prod
+volumes:
+  dbdata_prod:
+    external: true
+
+secrets:
+  postgres_password:
+    external: true
+
+networks:
+  devnet_prod:
+    attachable: true

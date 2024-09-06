@@ -1,0 +1,40 @@
+name: Frontend Tests
+
+on:
+  pull_request:
+    paths:
+    - frontend/**
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+   run:
+     working-directory: frontend
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+  
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'yarn'
+          cache-dependency-path: frontend
+
+      - name: Install project dependencies
+        run: yarn --prefer-offline
+
+      - name: lint
+        run: yarn lint

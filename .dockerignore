@@ -1,0 +1,15 @@
+.capistrano
+.byebug_history
+.bundle
+*/.vagrant
+node_modules
+coverage
+public/packs
+public/packs-test
+tmp
+log/**
+.git
+.gitmodules
+/config/master.key
+/config/credentials/*.key
+
